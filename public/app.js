@@ -205,6 +205,7 @@ function filtered() {
   const sorters = {
     score: (a, b) => b.score - a.score,
     upside: (a, b) => b.target.basePct - a.target.basePct,
+    bull: (a, b) => b.target.bullPct - a.target.bullPct,
     rr: (a, b) => b.riskReward - a.riskReward,
     m1: (a, b) => (b.returns.m1 ?? -9) - (a.returns.m1 ?? -9),
     risk: (a, b) => a.vol - b.vol,
