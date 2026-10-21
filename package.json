@@ -1,0 +1,14 @@
+{
+  "name": "explode-radar",
+  "version": "1.0.0",
+  "description": "Breakout radar that scans Indian & US stocks/ETFs, mutual funds, crypto and commodities using free data sources.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "license": "MIT"
+}
