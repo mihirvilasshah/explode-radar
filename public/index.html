@@ -44,6 +44,12 @@
   <main class="container">
     <section class="pulse" id="pulse" aria-label="Market pulse"></section>
 
+    <nav class="view-tabs tabs" id="viewTabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" data-view="radar" aria-selected="true">Radar</button>
+      <button class="tab" role="tab" data-view="news" aria-selected="false">Market news</button>
+    </nav>
+
+    <div id="radarView">
     <section class="hero">
       <div class="hero-text">
         <span class="eyebrow">Multi-asset breakout scanner</span>
@@ -51,15 +57,6 @@
         <p>We scan Indian &amp; US stocks, ETFs, mutual funds, crypto and commodities for volatility squeezes, breakouts, golden crosses and relative-strength leaders — then build a thesis, target range and time horizon for each.</p>
       </div>
       <div class="picks" id="picks"></div>
-    </section>
-
-    <section class="news-section" id="marketNewsSection" aria-label="Market news" hidden>
-      <div class="news-head">
-        <h2>Market news <span>&amp; impact on tracked assets</span></h2>
-        <span class="news-sum" id="marketNewsSum"></span>
-      </div>
-      <div class="news-list" id="marketNews"></div>
-      <button class="btn news-more" id="marketNewsMore" hidden>Show all headlines</button>
     </section>
 
     <section class="controls">
@@ -97,6 +94,19 @@
     <aside class="disclaimer">
       <strong>Not financial advice.</strong> Scores, targets and horizons are generated algorithmically from historical price data and technical indicators. They are probabilistic estimates, not guarantees — markets can and do move against any signal. Do your own research and consult a registered advisor (SEBI / SEC) before investing.
     </aside>
+    </div>
+
+    <div id="newsView" hidden>
+      <section class="news-section" aria-label="Market news">
+        <div class="news-head">
+          <h2>Market news <span>&amp; impact on tracked assets</span></h2>
+          <span class="news-sum" id="marketNewsSum"></span>
+        </div>
+        <div class="tabs" id="newsFilter" role="tablist" aria-label="Filter news by impact"></div>
+        <div class="news-list" id="marketNews" aria-live="polite"><div class="news-empty">Loading latest headlines…</div></div>
+        <p class="news-note" id="marketNewsNote"></p>
+      </section>
+    </div>
   </main>
 
   <footer class="footer">

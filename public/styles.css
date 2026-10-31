@@ -314,7 +314,9 @@ input[type='range'] { accent-color: #ff5f3d; }
 .news-summary { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .85rem; }
 .news-note { grid-column: 1 / -1; font-size: .72rem; color: var(--muted); margin: 0; }
 .news-empty { grid-column: 1 / -1; color: var(--muted); font-size: .88rem; padding: 6px 0; }
-.news-more { margin-top: 10px; }
+.view-tabs { margin: 4px 0 6px; padding-bottom: 6px; }
+.news-section .tabs { padding-bottom: 14px; }
+.news-section > .news-note { margin-top: 12px; }
 .m-section h4 { margin: 0 0 10px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 .thesis { margin: 0; font-size: .98rem; line-height: 1.65; }
 .proj { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }

@@ -389,26 +389,49 @@ async function loadAssetNews(a) {
   }
 }
 
-const MARKET_NEWS_PREVIEW = 8;
+const IMPACTS = ['Bullish', 'Bearish', 'Neutral'];
+const newsState = { data: null, impact: 'all', failed: false };
+
+function renderMarketNews() {
+  const list = $('#marketNews');
+  const { data } = newsState;
+  if (!data) {
+    $('#newsFilter').innerHTML = '';
+    $('#marketNewsNote').textContent = '';
+    list.innerHTML = newsState.failed
+      ? '<div class="news-empty">Couldn\'t load news right now. <button class="btn" id="newsRetry">Try again</button></div>'
+      : '<div class="news-empty">Loading latest headlines…</div>';
+    return;
+  }
+  const counts = Object.fromEntries(IMPACTS.map((k) => [k, data.items.filter((it) => it.impact === k).length]));
+  $('#newsFilter').innerHTML = [['all', 'All', data.items.length], ...IMPACTS.map((k) => [k, k, counts[k]])].map(([k, label, n]) =>
+    `<button class="tab" role="tab" data-impact="${k}" aria-selected="${newsState.impact === k}">${esc(label)}<span class="count">${n}</span></button>`).join('');
+  const s = data.summary;
+  $('#marketNewsSum').innerHTML = `<span class="impact imp-${esc(s.label)}">${esc(s.label)}</span> ${esc(s.text)}`;
+  const items = newsState.impact === 'all' ? data.items : data.items.filter((it) => it.impact === newsState.impact);
+  list.innerHTML = items.length
+    ? items.map((it) => newsItem(it)).join('')
+    : `<div class="news-empty">No ${esc(newsState.impact.toLowerCase())} headlines right now.</div>`;
+  $('#marketNewsNote').textContent = NEWS_NOTE;
+}
 
 async function loadMarketNews() {
+  newsState.failed = false;
+  renderMarketNews();
   try {
-    const data = await fetchNews('');
-    if (!data.items.length) return;
-    const s = data.summary;
-    $('#marketNewsSum').innerHTML = `<span class="impact imp-${esc(s.label)}">${esc(s.label)}</span> ${esc(s.text)}`;
-    const more = $('#marketNewsMore');
-    const render = (all) => {
-      const list = all ? data.items : data.items.slice(0, MARKET_NEWS_PREVIEW);
-      $('#marketNews').innerHTML = list.map((it) => newsItem(it)).join('');
-      more.hidden = data.items.length <= MARKET_NEWS_PREVIEW || all;
-    };
-    render(false);
-    more.onclick = () => render(true);
-    $('#marketNewsSection').hidden = false;
+    newsState.data = await fetchNews('');
   } catch {
-    /* news is optional; the rest of the page works without it */
+    newsState.failed = true;
   }
+  renderMarketNews();
+}
+
+function showView(view) {
+  const news = view === 'news';
+  $('#radarView').hidden = news;
+  $('#newsView').hidden = !news;
+  for (const t of $('#viewTabs').children) t.setAttribute('aria-selected', String(t.dataset.view === view));
+  window.scrollTo({ top: 0 });
 }
 
 // ---------- Modal ----------
@@ -523,6 +546,19 @@ $('#minScore').addEventListener('input', (e) => {
   $('#minScoreVal').textContent = state.minScore;
   renderGrid();
 });
+$('#viewTabs').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-view]');
+  if (!t) return;
+  showView(t.dataset.view);
+  history.replaceState(null, '', t.dataset.view === 'news' ? '#news' : location.pathname);
+});
+$('#newsFilter').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-impact]');
+  if (!t) return;
+  newsState.impact = t.dataset.impact;
+  renderMarketNews();
+});
+$('#marketNews').addEventListener('click', (e) => { if (e.target.closest('#newsRetry')) loadMarketNews(); });
 for (const sel of ['#grid', '#picks', '#marketNews', '#modalBody']) {
   $(sel).addEventListener('click', (e) => {
     const el = e.target.closest('[data-id]');
@@ -536,5 +572,6 @@ $('#grid').addEventListener('keydown', (e) => {
 $('#modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 
 setInterval(renderUpdated, 60000);
+if (location.hash === '#news') showView('news');
 load();
 loadMarketNews();
