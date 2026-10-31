@@ -273,10 +273,18 @@ input[type='range'] { accent-color: #ff5f3d; }
 .chart { width: 100%; height: auto; }
 .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .75rem; color: var(--muted); padding: 4px 10px 8px; }
 .chart-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.chart-hint { margin-left: auto; opacity: .8; }
+.chart { user-select: none; -webkit-user-select: none; }
 .chart-tip {
-  position: fixed; z-index: 1000; pointer-events: none; padding: 6px 10px; border-radius: 8px; font-size: .78rem;
+  position: absolute; z-index: 5; pointer-events: none; padding: 6px 10px; border-radius: 8px; font-size: .78rem; line-height: 1.4;
   background: var(--surface-solid); border: 1px solid var(--border-strong); box-shadow: var(--shadow); font-family: var(--mono);
+  display: flex; flex-direction: column; white-space: nowrap;
 }
+.chart-tip[hidden] { display: none; }
+.chart-tip .tip-date, .chart-tip .tip-row { color: var(--muted); }
+.chart-tip b { font-size: .86rem; }
+.chart-tip b.up { color: var(--up); }
+.chart-tip b.down { color: var(--down); }
 .m-section { margin-top: 22px; }
 .m-section h4 { margin: 0 0 10px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 .thesis { margin: 0; font-size: .98rem; line-height: 1.65; }

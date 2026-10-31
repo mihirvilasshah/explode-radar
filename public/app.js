@@ -116,36 +116,102 @@ function bigChart(a) {
     ${Math.abs(yb - yu) > 18 ? label(yb, `Base ${fmtPrice(a.target.basePrice, a.currency)}`, '#ff8a3d') : ''}
     ${label(ys, `Stop ${fmtPrice(a.stop.price, a.currency)}`, '#f0445a')}
     ${dateLabels}
+    <rect id="rangeBox" y="${padT}" height="${H - padT - padB}" fill="var(--muted)" opacity=".16" visibility="hidden"/>
+    <line id="rangeA" y1="${padT}" y2="${H - padB}" stroke="var(--muted)" visibility="hidden"/>
+    <line id="rangeB" y1="${padT}" y2="${H - padB}" stroke="var(--muted)" visibility="hidden"/>
+    <circle id="dotA" r="4" fill="${col}" stroke="var(--bg-2)" stroke-width="2" visibility="hidden"/>
     <line id="hoverLine" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="var(--muted)" stroke-dasharray="3 3" visibility="hidden"/>
     <circle id="hoverDot" r="4" fill="${col}" stroke="var(--bg-2)" stroke-width="2" visibility="hidden"/>
-    <rect id="hoverZone" x="${padL}" y="${padT}" width="${plotW}" height="${H - padT - padB}" fill="transparent"/>
+    <rect id="hoverZone" x="${padL}" y="${padT}" width="${plotW}" height="${H - padT - padB}" fill="transparent" style="cursor:crosshair;touch-action:pan-y"/>
   </svg>`;
 }
 
 function wireChartHover(a) {
   const svg = $('#bigChart');
   const zone = $('#hoverZone', svg), line = $('#hoverLine', svg), dot = $('#hoverDot', svg), tip = $('#chartTip');
+  const box = $('#rangeBox', svg), lineA = $('#rangeA', svg), lineB = $('#rangeB', svg), dotA = $('#dotA', svg);
+  const wrap = svg.parentElement;
   const { close, dates } = a.history;
-  const hide = () => { line.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; };
-  zone.addEventListener('mousemove', (e) => {
+  const zx = +zone.getAttribute('x'), zw = +zone.getAttribute('width'), zy = +zone.getAttribute('y'), zh = +zone.getAttribute('height');
+  const min = +svg.dataset.min, max = +svg.dataset.max;
+  const px = (i) => zx + (i / (close.length - 1)) * zw;
+  const py = (i) => zy + (1 - (close[i] - min) / (max - min)) * zh;
+  const show = (el, on) => el.setAttribute('visibility', on ? 'visible' : 'hidden');
+
+  let anchor = null, dragging = false, locked = false;
+
+  const indexAt = (e) => {
     const pt = svg.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
     const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    const zx = +zone.getAttribute('x'), zw = +zone.getAttribute('width');
-    const zy = +zone.getAttribute('y'), zh = +zone.getAttribute('height');
     const i = Math.round(((p.x - zx) / zw) * (close.length - 1));
-    if (i < 0 || i >= close.length) return hide();
-    const cx = zx + (i / (close.length - 1)) * zw;
-    const min = +svg.dataset.min, max = +svg.dataset.max;
-    const cy = zy + (1 - (close[i] - min) / (max - min)) * zh;
-    line.setAttribute('x1', cx); line.setAttribute('x2', cx); line.setAttribute('visibility', 'visible');
-    dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('visibility', 'visible');
+    return Math.max(0, Math.min(close.length - 1, i));
+  };
+
+  const placeTip = (e) => {
+    const r = wrap.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = e.clientX - r.left + 14;
+    if (left + w > r.width - 4) left = e.clientX - r.left - w - 14;
+    left = Math.max(4, left);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${Math.max(4, e.clientY - r.top - h - 12)}px`;
+  };
+
+  const clearRange = () => { [box, lineA, lineB, dotA].forEach((el) => show(el, false)); };
+  const clearAll = () => { clearRange(); show(line, false); show(dot, false); tip.hidden = true; };
+
+  const showPoint = (i, e) => {
+    clearRange();
+    line.setAttribute('x1', px(i)); line.setAttribute('x2', px(i)); show(line, true);
+    dot.setAttribute('cx', px(i)); dot.setAttribute('cy', py(i)); show(dot, true);
     tip.hidden = false;
-    tip.textContent = `${fmtDate(dates[i])} · ${fmtPrice(close[i], a.currency)}`;
-    tip.style.left = `${e.clientX + 14}px`;
-    tip.style.top = `${e.clientY - 34}px`;
+    tip.innerHTML = `<span class="tip-date">${esc(fmtDate(dates[i]))}</span><b>${esc(fmtPrice(close[i], a.currency))}</b>`;
+    placeTip(e);
+  };
+
+  const showRange = (i, j, e) => {
+    const [lo, hi] = i <= j ? [i, j] : [j, i];
+    const diff = close[hi] - close[lo];
+    const pct = close[lo] ? diff / close[lo] : null;
+    const c = diff >= 0 ? 'up' : 'down';
+    show(line, false);
+    box.setAttribute('x', px(lo)); box.setAttribute('width', px(hi) - px(lo)); show(box, true);
+    lineA.setAttribute('x1', px(i)); lineA.setAttribute('x2', px(i)); show(lineA, true);
+    lineB.setAttribute('x1', px(j)); lineB.setAttribute('x2', px(j)); show(lineB, true);
+    dotA.setAttribute('cx', px(i)); dotA.setAttribute('cy', py(i)); show(dotA, true);
+    dot.setAttribute('cx', px(j)); dot.setAttribute('cy', py(j)); show(dot, true);
+    tip.hidden = false;
+    tip.innerHTML = `<span class="tip-date">${esc(fmtDate(dates[lo]))} → ${esc(fmtDate(dates[hi]))}</span>
+      <span class="tip-row">${esc(fmtPrice(close[lo], a.currency))} → ${esc(fmtPrice(close[hi], a.currency))}</span>
+      <b class="${c}">${diff >= 0 ? '+' : '-'}${esc(fmtPrice(Math.abs(diff), a.currency))} (${esc(fmtPct(pct, 2))})</b>`;
+    placeTip(e);
+  };
+
+  zone.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const i = indexAt(e);
+    if (locked) { locked = false; clearAll(); }
+    anchor = i;
+    dragging = true;
+    zone.setPointerCapture(e.pointerId);
+    showPoint(i, e);
   });
-  zone.addEventListener('mouseleave', hide);
+  zone.addEventListener('pointermove', (e) => {
+    if (locked) return;
+    const i = indexAt(e);
+    if (dragging && i !== anchor) showRange(anchor, i, e);
+    else showPoint(i, e);
+  });
+  const finish = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    if (indexAt(e) !== anchor) locked = true;
+    else anchor = null;
+  };
+  zone.addEventListener('pointerup', finish);
+  zone.addEventListener('pointercancel', () => { dragging = false; anchor = null; clearAll(); });
+  zone.addEventListener('pointerleave', () => { if (!dragging && !locked) clearAll(); });
 }
 
 // ---------- Rendering ----------
@@ -298,8 +364,8 @@ function openModal(id) {
     </div>
     <div class="m-price"><span class="price">${fmtPrice(a.price, a.currency)}</span><span class="chg ${cls(r.d1)}">${fmtPct(r.d1, 2)} today</span>
       <span class="tags"><span class="tag setup">${esc(a.setup)}</span><span class="tag ${riskClass(a.risk)}">${esc(a.risk)} risk</span></span></div>
-    <div class="chart-wrap">${bigChart(a)}
-      <div class="chart-legend"><span><i style="background:${r.y1 >= 0 ? '#16c784' : '#f0445a'}"></i>Price (1Y)</span><span><i style="background:#8b5cf6"></i>50-day MA</span><span><i style="background:#ff8a3d"></i>Base target</span><span><i style="background:#ff2d7a"></i>Bull target</span><span><i style="background:#f0445a"></i>Stop / invalidation</span></div>
+    <div class="chart-wrap">${bigChart(a)}<div class="chart-tip" id="chartTip" hidden></div>
+      <div class="chart-legend"><span><i style="background:${r.y1 >= 0 ? '#16c784' : '#f0445a'}"></i>Price (1Y)</span><span><i style="background:#8b5cf6"></i>50-day MA</span><span><i style="background:#ff8a3d"></i>Base target</span><span><i style="background:#ff2d7a"></i>Bull target</span><span><i style="background:#f0445a"></i>Stop / invalidation</span><span class="chart-hint">Hover for price · drag across the chart to measure change</span></div>
     </div>
 
     <div class="m-section"><h4>Projection</h4>
@@ -386,7 +452,6 @@ $('#grid').addEventListener('keydown', (e) => {
   if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openModal(el.dataset.id); }
 });
 $('#modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
-$('#modal').addEventListener('close', () => { $('#chartTip').hidden = true; });
 
 setInterval(renderUpdated, 60000);
 load();
