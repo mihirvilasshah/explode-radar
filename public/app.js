@@ -334,9 +334,86 @@ function renderSkeleton() {
   $('#picks').innerHTML = Array.from({ length: 4 }, () => '<div class="pick sk" style="height:170px"></div>').join('');
 }
 
+// ---------- News ----------
+const newsCache = new Map();
+
+async function fetchNews(id) {
+  if (newsCache.has(id)) return newsCache.get(id);
+  const res = await fetch(`/api/news${id ? `?id=${encodeURIComponent(id)}` : ''}`);
+  if (!res.ok) throw new Error(`Server responded ${res.status}`);
+  const data = await res.json();
+  newsCache.set(id, data);
+  setTimeout(() => newsCache.delete(id), 10 * 60 * 1000);
+  return data;
+}
+
+function timeAgo(t) {
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 60) return `${m < 1 ? 'just now' : `${m}m ago`}`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+}
+
+const impactArrow = { Bullish: '<span class="up">▲</span>', Bearish: '<span class="down">▼</span>', Neutral: '<span>●</span>' };
+
+function newsItem(it, selfId) {
+  const href = /^https?:\/\//i.test(it.link) ? esc(it.link) : '#';
+  const rel = it.related.filter((r) => r.id !== selfId);
+  const drivers = it.drivers.length ? `<span>${esc(it.drivers.join(' · '))}</span>` : '';
+  return `<article class="news-item imp-${esc(it.impact)}">
+    <a class="news-title" href="${href}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>
+    <div class="news-meta">${esc(it.source)} · ${esc(timeAgo(it.time))}</div>
+    <div class="news-impact"><span class="impact imp-${esc(it.impact)}">${esc(it.impact)}</span>${drivers}</div>
+    ${rel.length ? `<div class="news-rel"><span>${selfId ? 'Also affects' : 'Impacts'}:</span>${rel.map((r) =>
+      `<button class="news-chip" data-id="${esc(r.id)}" title="${esc(`${it.impact} for ${r.name}`)}">${impactArrow[r.impact] || ''}${esc(r.name)}</button>`).join('')}</div>` : ''}
+  </article>`;
+}
+
+const NEWS_NOTE = 'Impact is a keyword-based estimate from headlines (earnings beats, downgrades, rate moves, etc.), not a prediction.';
+
+async function loadAssetNews(a) {
+  const box = $('#assetNews');
+  if (!box) return;
+  try {
+    const data = await fetchNews(a.id);
+    if ($('#assetNews') !== box) return;
+    const s = data.summary;
+    box.innerHTML = data.items.length
+      ? `<div class="news-summary"><span class="impact imp-${esc(s.label)}">${esc(s.label)}</span><span>${esc(s.text)}</span></div>
+         ${data.theme ? `<p class="news-note">Few headlines name this asset directly, so this also includes news on ${esc(data.theme)}, which drives its price.</p>` : ''}
+         ${data.items.map((it) => newsItem(it, a.id)).join('')}
+         <p class="news-note">${esc(NEWS_NOTE)}</p>`
+      : '<div class="news-empty">No recent headlines found for this asset.</div>';
+  } catch {
+    if ($('#assetNews') === box) box.innerHTML = '<div class="news-empty">Couldn\'t load news right now. Try again in a few minutes.</div>';
+  }
+}
+
+const MARKET_NEWS_PREVIEW = 8;
+
+async function loadMarketNews() {
+  try {
+    const data = await fetchNews('');
+    if (!data.items.length) return;
+    const s = data.summary;
+    $('#marketNewsSum').innerHTML = `<span class="impact imp-${esc(s.label)}">${esc(s.label)}</span> ${esc(s.text)}`;
+    const more = $('#marketNewsMore');
+    const render = (all) => {
+      const list = all ? data.items : data.items.slice(0, MARKET_NEWS_PREVIEW);
+      $('#marketNews').innerHTML = list.map((it) => newsItem(it)).join('');
+      more.hidden = data.items.length <= MARKET_NEWS_PREVIEW || all;
+    };
+    render(false);
+    more.onclick = () => render(true);
+    $('#marketNewsSection').hidden = false;
+  } catch {
+    /* news is optional; the rest of the page works without it */
+  }
+}
+
 // ---------- Modal ----------
 function openModal(id) {
-  const a = state.data.assets.find((x) => x.id === id);
+  const a = state.data?.assets.find((x) => x.id === id);
   if (!a) return;
   const r = a.returns;
   const stats = [
@@ -383,6 +460,10 @@ function openModal(id) {
       <ul class="signals">${a.signals.map((s) => `<li class="${s.type}"><span class="pts">${s.points > 0 ? '+' : ''}${s.points}</span><div><b>${esc(s.label)}</b><span>${esc(s.detail)}</span></div></li>`).join('')}</ul>
     </div>
 
+    <div class="m-section"><h4>News &amp; impact</h4>
+      <div class="news-list" id="assetNews"><div class="news-empty">Loading latest headlines…</div></div>
+    </div>
+
     <div class="m-section"><h4>Key stats</h4>
       <div class="stats">${stats.map(([l, v, c]) => `<div><label>${esc(l)}</label><b class="${c}">${esc(v)}</b></div>`).join('')}</div>
     </div>
@@ -390,10 +471,11 @@ function openModal(id) {
     <p class="m-foot">Source: ${esc(a.source)}. Targets are volatility-scaled projections weighted by signal conviction — not price guarantees. Not financial advice.</p>`;
 
   const modal = $('#modal');
-  modal.showModal();
-  $('#modalBody').scrollTop = 0;
+  if (!modal.open) modal.showModal();
+  modal.scrollTop = 0;
   $('#closeModal').addEventListener('click', () => modal.close());
   wireChartHover(a);
+  loadAssetNews(a);
 }
 
 // ---------- Data ----------
@@ -441,7 +523,7 @@ $('#minScore').addEventListener('input', (e) => {
   $('#minScoreVal').textContent = state.minScore;
   renderGrid();
 });
-for (const sel of ['#grid', '#picks']) {
+for (const sel of ['#grid', '#picks', '#marketNews', '#modalBody']) {
   $(sel).addEventListener('click', (e) => {
     const el = e.target.closest('[data-id]');
     if (el) openModal(el.dataset.id);
@@ -455,3 +537,4 @@ $('#modal').addEventListener('click', (e) => { if (e.target === e.currentTarget)
 
 setInterval(renderUpdated, 60000);
 load();
+loadMarketNews();

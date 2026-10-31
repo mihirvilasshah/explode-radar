@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getReport } from './src/report.js';
+import { getNews } from './src/news.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -49,6 +50,17 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       console.error(e);
       return send(res, 502, JSON.stringify({ error: 'Failed to fetch market data' }), 'application/json');
+    }
+  }
+
+  if (url.pathname === '/api/news') {
+    try {
+      const data = await getNews(url.searchParams.get('id') || '');
+      return send(res, 200, JSON.stringify(data), 'application/json; charset=utf-8');
+    } catch (e) {
+      const notFound = e.status === 404;
+      if (!notFound) console.error(e);
+      return send(res, notFound ? 404 : 502, JSON.stringify({ error: notFound ? 'Unknown asset' : 'Failed to fetch news' }), 'application/json');
     }
   }
 

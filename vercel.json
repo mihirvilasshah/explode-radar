@@ -3,7 +3,8 @@
   "framework": null,
   "outputDirectory": "public",
   "functions": {
-    "api/recommendations.js": { "maxDuration": 60 }
+    "api/recommendations.js": { "maxDuration": 60 },
+    "api/news.js": { "maxDuration": 30 }
   },
   "headers": [
     {

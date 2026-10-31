@@ -21,6 +21,11 @@ Set `PORT` to change the port. Data is cached for 30 minutes; the refresh button
 | mfapi.in (AMFI) | Indian mutual fund NAV history |
 | CoinGecko | Crypto logos, market-cap rank, all-time-high distance, trending coins |
 | Alternative.me | Crypto Fear & Greed index |
+| Google News RSS, Yahoo Finance RSS, Economic Times RSS, CNBC RSS, CoinDesk RSS | Headlines for the news section (no API keys) |
+
+## News & impact
+
+The home page shows a market-news strip, and every asset modal has a "News & impact" section. Headlines are scored with a transparent keyword lexicon (earnings beats, upgrades, record highs, downgrades, probes, rate hikes, hacks, etc.) in [src/news.js](src/news.js) and tagged Bullish, Bearish or Neutral. Each headline lists the assets it affects, found by name, ticker and theme (e.g. "crude" → WTI and the Energy ETF); click a chip to open that asset. Funds and ETFs with few direct headlines also show news on the market they track. News is cached for 15 minutes and served from `/api/news` (`?id=<asset id>` for a single asset). The impact label is a heuristic, not a prediction.
 
 ## How scoring works
 
